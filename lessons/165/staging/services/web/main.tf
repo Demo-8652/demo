@@ -25,9 +25,21 @@ resource "aws_instance" "example" {
 
   vpc_security_group_ids = [aws_security_group.instance.id]
 
-  user_data = <<-EOF
-              #!/bin/bash
-              echo "Hello, World" > index.html
-              nohup busybox httpd -f -p ${var.server_port} &
-              EOF
+  user_data = templatefile("user-data.sh", {
+    server_port      = var.server_port
+    postgres_address = data.terraform_remote_state.postgres.outputs.address
+    postgres_port    = data.terraform_remote_state.postgres.outputs.port
+  })
+
+  user_data_replace_on_change = true
+}
+
+data "terraform_remote_state" "postgres" {
+  backend = "s3"
+
+  config = {
+    bucket = "antonputra-terraform-state"
+    key    = "staging/data-stores/postgres/terraform.tfstate"
+    region = "us-east-2"
+  }
 }
